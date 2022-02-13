@@ -1,200 +1,202 @@
-import time
-import tkinter as tk
-from threading import Thread
+
+from PIL import Image, ImageDraw
+import math
+
+img = Image.new("1", (128 * 10, 64*10), color=1)
+
+d = ImageDraw.Draw(img)
 
 
-class Thread1(Thread):
-    def __init__(self, priority=0, resources_to_reserve=tuple(), *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.daemon = True
+def __orientation(x0, y0, x1, y1, x2, y2):
+    # to find the orientation of an ordered triplet (p,q,r)
+    # function returns the following values:
+    # 0 : Collinear points
+    # 1 : Clockwise points
+    # 2 : Counterclockwise
 
-        # Prioridade da task
-        self.__priority = priority
+    # See https://www.geeksforgeeks.org/orientation-3-ordered-points/amp/
+    # for details of below formula.
 
-        # Recursos que a task precisa reservar para rodar
-        self.__resources_to_reserve = resources_to_reserve
+    val = (y1 - y0) * (x2 - x1) - (x1 - x0) * (y2 - y1)
 
-    def run(self):
-        print("Thread 1 START ------")
-        print("Thread 1")
-        time.sleep(0.5)
-        print("Thread 1")
-        time.sleep(0.5)
-        print("Thread 1")
-        time.sleep(0.5)
-        print("Thread 1")
-        time.sleep(0.5)
-        print("Thread 1")
-        time.sleep(0.5)
-        print("Thread 1 END   ------")
+    if val > 0:
 
-    @property
-    def priority(self):
-        return self.__priority
-
-    @ property
-    def resources_to_reserve(self):
-        return self.__resources_to_reserve
+        # Clockwise orientation
+        return 1
+    elif val < 0:
+        # Counterclockwise orientation
+        return 2
+    else:
+        # Collinear orientation
+        return 0
 
 
-class Thread2(Thread):
-    def __init__(self, priority=0, resources_to_reserve=tuple(), *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.daemon = True
+# The main function that returns true if
+# the line segment 'p1q1' and 'p2q2' intersect.
+def __do_intersect(x0, y0, x1, y1, x2, y2, x3, y3):
+    # Find the 4 orientations required for
+    # the general and special cases
+    o0 = __orientation(x0, y0, x1, y1, x2, y2)
+    o1 = __orientation(x0, y0, x1, y1, x3, y3)
+    o2 = __orientation(x2, y2, x3, y3, x0, y0)
+    o3 = __orientation(x2, y2, x3, y3, x1, y1)
 
-        # Prioridade da task
-        self.__priority = priority
+    # General case
+    if (o0 != o1) and (o2 != o3):
+        return True
 
-        # Recursos que a task precisa reservar para rodar
-        self.__resources_to_reserve = resources_to_reserve
-
-    def run(self):
-        print("Thread 2 START ------")
-        print("Thread 2")
-        time.sleep(0.5)
-        print("Thread 2")
-        time.sleep(0.5)
-        print("Thread 2")
-        time.sleep(0.5)
-        print("Thread 2")
-        time.sleep(0.5)
-        print("Thread 2")
-        time.sleep(0.5)
-        print("Thread 2 END   ------")
-
-    @property
-    def priority(self):
-        return self.__priority
-
-    @property
-    def resources_to_reserve(self):
-        return self.__resources_to_reserve
+    return False
 
 
-class Thread3(Thread):
-    def __init__(self, priority=0, resources_to_reserve: tuple = tuple(), *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.daemon = True
+def write_glcd_pixel(x, y, color):
 
-        # Prioridade da task
-        self.__priority = priority
+    if x == 0 and y == 0:
+        print("oi")
 
-        # Recursos que a task precisa reservar para rodar
-        self.__resources_to_reserve = resources_to_reserve
-
-    def run(self):
-        print("Thread 3 START ------")
-        print("Thread 3")
-        time.sleep(0.5)
-        print("Thread 3")
-        time.sleep(0.5)
-        print("Thread 3")
-        time.sleep(0.5)
-        print("Thread 3")
-        time.sleep(0.5)
-        print("Thread 3")
-        time.sleep(0.5)
-        print("Thread 3 END   ------")
-
-    @property
-    def priority(self):
-        return self.__priority
-
-    @property
-    def resources_to_reserve(self):
-        return self.__resources_to_reserve
+    if not 63 >= y >= 0 or not 127 >= x >= 0:
+        return
+    y = 63 - y
+    color = not color
+    for i in range(10):
+        for j in range(10):
+            img.putpixel((x * 10 + i, y * 10 + j), color)
 
 
-class MainWindow(tk.Tk):
+def draw_line(xa, ya, xb, yb):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.after(10, self.__thread_1_handler)
-        self.after(10, self.__thread_2_handler)
+    distancia_vertical = yb - ya
+    distancia_horizontal = xb - xa
 
-        self.__thread_1 = Thread1()
-        self.__thread_2 = Thread2()
-        self.__thread_3 = Thread3()
+    if not distancia_horizontal and not distancia_vertical:
+        # Origem e destino são o mesmo ponto
+        # Desenha somente um ponto
+        write_glcd_pixel(xa, ya, 1)
+        return
 
-        # Cria um objeto scheduler para agendar as threads
-        self.__scheduler = ThreadScheduler()
+    maior_distancia_abs = max(abs(distancia_vertical), abs(distancia_horizontal))
 
-        # Lança a task do scheduler para controlar a execução das threads
-        self.after(10, self.__scheduler_task)
+    incremento_x = distancia_horizontal / maior_distancia_abs
+    incremento_y = distancia_vertical / maior_distancia_abs
 
-    def __thread_1_handler(self):
-        if not self.__thread_1.is_alive():
-            self.__thread_1 = Thread1()
-            self.__scheduler.add_thread_to_scheduler(self.__thread_1)
-        self.after(10, self.__thread_1_handler)
-
-    def __thread_2_handler(self):
-        if not self.__thread_2.is_alive():
-            self.__thread_2 = Thread2()
-            self.__scheduler.add_thread_to_scheduler(self.__thread_2)
-        self.after(10, self.__thread_2_handler)
-
-    def __thread_3_handler(self):
-        if not self.__thread_3.is_alive():
-            self.__thread_3 = Thread3()
-            self.__scheduler.add_thread_to_scheduler(self.__thread_3)
-        self.after(10, self.__thread_3_handler)
-
-    def __scheduler_task(self):
-        """ Lança o scheluder para tratar o agendamento das threads """
-        self.__scheduler.launch_scheduler()
-        self.after(10, self.__scheduler_task)
+    x = xa
+    y = ya
+    for i in range(maior_distancia_abs + 1):
+        write_glcd_pixel(round(x), round(y), 1)
+        x += incremento_x
+        y += incremento_y
 
 
-class ThreadScheduler:
+def draw_circle(xc, yc, r, fill):
 
-    def __init__(self):
-        self.__threads_to_run = []
-        self.__threads_running = []
+    for dx in range(-r, r + 1):
+        dy = round(math.sqrt(r**2 - dx**2))
 
-    def launch_scheduler(self):
-        """ Roda as threads levando em consideração os recursos reservados
-        de uso exclusivo e a prioridade de cada thread """
+        if fill:
+            for ddy in range(dy):
+                write_glcd_pixel(xc + dx, yc + ddy, 1)
+                write_glcd_pixel(xc - dx, yc - ddy, 1)
+        else:
+            write_glcd_pixel(xc + dx, yc + dy, 1)
+            write_glcd_pixel(xc - dx, yc - dy, 1)
 
-        if self.__threads_to_run:
-            # Se existem threads para rodar ...
+    for dy in range(-r, r + 1):
+        dx = round(math.sqrt(r ** 2 - dy ** 2))
 
-            # Remove as threads que já terminaram de rodar da lista threads_running
-            self.__threads_running = [thread for thread in self.__threads_running if thread.is_alive()]
-
-            # Obtém a lista de recursos sendo utilizados pelas threads rodando
-            resources_being_used = []
-            for thread in self.__threads_running:
-                resources_being_used.extend(thread.resources_to_reserve)
-
-            # Roda as threads agendadas, priorizando as de maior prioridade entre aqualas que demandam
-            # os mesmos recursos.
-            for thread in tuple(self.__threads_to_run):
-                # Para cada thread na lista de threads a rodar (iterando da maior para menor prioridade)
-                if all(resource not in resources_being_used for resource in thread.resources_to_reserve):
-                    # Se todos os recursos demandados pela thread agendada para rodar estão disponíveis
-                    thread.start()
-                    self.__threads_to_run.remove(thread)
-                    self.__threads_running.append(thread)
-                    resources_being_used.extend(thread.resources_to_reserve)
-
-    def add_thread_to_scheduler(self, new_thread):
-        """ Adiciona uma nova thread a lista do scheduler """
-        if type(new_thread) not in [type(thread) for thread in self.__threads_to_run]:
-            # Se a nova thread a ser agendada ainda não existe na lista de threads para rodar...
-            # Adiciona a nova thread a lista
-            self.__threads_to_run.append(new_thread)
-
-            # Reordena a lista de threads a rodar de acordo com a prioridade de cada thread (maior primeiro)
-            self.__threads_to_run.sort(key=lambda thread: thread.priority, reverse=True)
-
-    @property
-    def threads_to_run(self):
-        """ Retorna uma lista com as threads aguardando para rodar """
-        return self.__threads_to_run
+        if fill:
+            for ddx in range(dx):
+                write_glcd_pixel(xc + ddx, yc + dy, 1)
+                write_glcd_pixel(xc - ddx, yc - dy, 1)
+        else:
+            write_glcd_pixel(xc + dx, yc + dy, 1)
+            write_glcd_pixel(xc - dx, yc - dy, 1)
 
 
-if __name__ == '__main__':
-    app = MainWindow()
-    app.mainloop()
+def draw_math_function(func, x_origin_offset, y_origin_offset, arg_min, arg_max, x_scale, y_scale):
+
+    if arg_max < arg_min:
+        return
+
+    x_min = round(arg_min/x_scale)
+    x_max = round(arg_max/x_scale)
+
+    previous_x = x_min
+    previous_y = round(func(arg_min)/y_scale)
+
+    for x in range(x_min, x_max + 1):
+        y = round(func(x * x_scale)/y_scale)
+        draw_line(previous_x + x_origin_offset, previous_y + y_origin_offset, x + x_origin_offset, y + y_origin_offset)
+        previous_x = x
+        previous_y = y
+
+
+def draw_triangle(x0, y0, x1, y1, x2, y2, fill):
+
+    if not fill:
+        draw_line(x0, y0, x1, y1)
+        draw_line(x1, y1, x2, y2)
+        draw_line(x2, y2, x0, y0)
+
+    else:
+
+        distancia_vertical = y1 - y0
+        distancia_horizontal = x1 - x0
+
+        if not distancia_horizontal and not distancia_vertical:
+            # Origem e destino são o mesmo ponto
+            # Desenha uma reta
+            draw_line(x0, y0, x1, y1)
+            draw_line(x1, y1, x2, y2)
+            return
+
+        maior_distancia_abs = max(abs(distancia_vertical), abs(distancia_horizontal))
+
+        incremento_x = distancia_horizontal / maior_distancia_abs
+        incremento_y = distancia_vertical / maior_distancia_abs
+
+        x = x0
+        y = y0
+        for i in range(maior_distancia_abs + 1):
+            draw_line(math.floor(x), math.floor(y), x2, y2)
+            draw_line(math.ceil(x), math.ceil(y), x2, y2)
+            x += incremento_x
+            y += incremento_y
+
+
+def draw_quadrilateral(x0, y0, x1, y1, x2, y2, x3, y3):
+
+    points = [[x0, y0], [x1, y1], [x2, y2], [x3, y3]]
+
+    for origin_point_index in range(len(points)):
+        for destination_point_index in range(origin_point_index + 1, len(points)):
+
+            for index in [0, 1, 2, 3]:
+                if index != origin_point_index and index != destination_point_index:
+                    other_origin_point_index = index
+            for index in [3, 2, 1, 0]:
+                if index != origin_point_index and index != destination_point_index:
+                    other_destination_point_index = index
+
+            # Checa se a reta ligando o ponto de origem ao ponto de destino é interceptada por qualquer outra
+            if not __do_intersect(
+                    *points[origin_point_index], *points[destination_point_index],
+                    *points[other_origin_point_index], *points[other_destination_point_index]
+            ):
+                draw_line(*points[origin_point_index], *points[destination_point_index])
+
+
+
+draw_quadrilateral(1, 1, 1, 30, 30, 1, 30, 30)
+
+#draw_triangle(30, 30, 36, 30, 33, 40, 0)
+#draw_math_function(lambda x: x, 1, 1, 0, 0, 1, 1)
+#draw_math_function(math.sin, 0, 30, 0, 15 * math.pi, 0.2, 0.04)
+#draw_math_function(lambda x: x**3/10000, 63, 32, -63, 64, 1, 1)
+
+# draw_line(0, 30, 127, 30)
+# draw_line(20, 0, 20, 63)
+
+img.show()
+
+
+
 
